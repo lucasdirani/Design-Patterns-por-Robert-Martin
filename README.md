@@ -11,6 +11,9 @@ Repositório com o objetivo de compartilhar exemplos de design patterns elaborad
   - [O método Undo](#o-método-undo)
   - [1001 utilidades](#1001-utilidades)
 - [Template Method e Strategy](#template-method-e-strategy)
+  - [Template Method](#template-method)
+  - [Strategy](#strategy)
+  - [Template Method ou Strategy?](#template-method-ou-strategy)
 
 # Command
 
@@ -100,3 +103,260 @@ Caso o usuário não tivesse gostado do círculo desenhado e quisesse removê-lo
 Acredito que tenha sido possível notar que o padrão de projeto Command se adequa muito bem em múltiplas situações. Sem dúvida alguma essa é a maior beleza do pattern, que demonstra ser flexível e simples de implementar.
 
 [(Voltar para o topo)](#índice)
+
+# Template Method e Strategy
+
+Segundo os relatos de Martin, durante a década de 1990, quando a orientação a objetos estava dando os seus primeiros passos, o conceito de herança se popularizou entre os programadores. Isso porque este pilar da POO permitia que os desenvolvedores reaproveitassem boa parte do seu código, modificando apenas operações específicas nas subclasses.
+
+Entretanto, não demorou muito tempo para que algumas pessoas notassem os impactos de se utilizar a herança de modo desgovernado. Uncle Bob conta que foi a partir de 1995, na época em que Gamma, Helm, Johnson e Vlissides lançaram o seu famoso livro de design patterns, que os efeitos colaterais da herança foram expostos de fato. Inclusive, os autores destacaram o seguinte:
+
+[![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=Favore%C3%A7a%20a%20composi%C3%A7%C3%A3o%20de%20objetos%20%28delega%C3%A7%C3%A3o%29%20em%20detrimento%20da%20heran%C3%A7a%20de%20classe.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
+
+A dicotomia entre herança e delegação pode ser bem retratada pelos padrões de projeto Template Method e Strategy. Os dois patterns resolvem o mesmo problema, que basicamente se resume a separar um algoritmo genérico de um contexto detalhado.
+
+## Template Method
+
+Com o objetivo de assimilarmos o funcionamento do padrão Template Method, mostrarei a seguir vários trechos de código elaborados por Robert Martin em sua obra.
+
+Para os programadores de C#, gostaria apenas de fazer uma observação. Os exemplos foram feitos em uma época que ainda não tínhamos o recurso de Generics na linguagem, e por conta disto a solução exigiu uma abordagem diferente.
+
+Sem mais delongas, considerem uma classe responsável por ordenar um array de inteiros usando o algoritmo Bubble Sort.
+
+``` csharp
+public class BubbleSorter
+{
+    static int operations = 0;
+    public static int Sort(int[] array)
+    {
+        operations = 0;
+        if (array.Length <= 1)
+            return operations;
+        for (int nextToLast = array.Length - 2; nextToLast >= 0; nextToLast--)
+        {
+            for (int index = 0; index <= nextToLast; index++)
+            {
+                CompareAndSwap(array, index);
+            }
+        }
+        return operations;
+    }
+    private static void CompareAndSwap(int[] array, int index)
+    {
+        if (array[index] > array[index+1])
+        {
+            Swap(array, index);
+        }
+        operations++;
+    }
+    private static void Swap(int[] array, int index)
+    {
+        int temp = array[index];
+        array[index] = array[index + 1];
+        array[index + 1] = temp;
+    }
+}
+```
+
+Reparem que o método Sort encapsula a lógica de ordenação. Ele consome os outros dois métodos da classe, Swap e CompareAndSwap, que manipulam o array e se responsabilizam pelos detalhes do algoritmo.
+
+A estrutura de BubbleSorter pode ser melhorada com a implementação do pattern Template Method. Aplicando essa refatoração, a classe não terá mais a preocupação de saber qual é o tipo do vetor sendo ordenado, e irá transferir ainda a responsabilidade de comparar e trocar elementos fora de ordem para as suas subclasses.
+
+``` csharp
+public abstract class BubbleSorter
+{
+    private int operations = 0;
+    protected int length = 0;
+    protected int DoSort()
+    {
+        operations = 0;
+        if(length <= 1)
+        {
+            return operations;
+        }
+        for (int nextToLast = length - 2; nextToLast >= 0; nextToLast--)
+        {
+            for (int index = 0; index <= nextToLast; index++)
+            {
+                if (OutOfOrder(index))
+                {
+                    Swap(index);
+                }
+                operations++;
+            }
+        }
+        return operations;
+    }
+    protected abstract void Swap(int index);
+    protected abstract bool OutOfOrder(int index);
+}
+```
+
+Agora que BubbleSorter é uma classe abstrata e está aberta para ser herdada, várias classes derivadas podem ser criadas com o intuito de ordenar não apenas arrays de inteiros, mas de qualquer tipo desejado.
+
+``` csharp
+public class IntBubbleSorter : BubbleSorter
+{
+    private int[] array = null;
+    public int Sort(int[] theArray)
+    {
+        array = theArray;
+        length = array.Length;
+        return DoSort();
+    }
+    protected override bool OutOfOrder(int index)
+    {
+        return array[index] > array[index + 1];
+    }
+    protected override void Swap(int index)
+    {
+        int temp = array[index];
+        array[index] = array[index + 1];
+        array[index + 1] = temp;
+    }
+}
+```
+
+``` csharp
+public class DoubleBubbleSorter : BubbleSorter
+{
+    private double[] array = null;
+    public int Sort(double[] theArray)
+    {
+        array = theArray;
+        length = array.Length;
+        return DoSort();
+    }
+    protected override bool OutOfOrder(int index)
+    {
+        return array[index] > array[index + 1];
+    }
+    protected override void Swap(int index)
+    {
+        double temp = array[index];
+        array[index] = array[index + 1];
+        array[index + 1] = temp;
+    }
+}
+```
+
+Contudo, o uso do Template Method traz algumas desvantagens. Por se basear na herança, as classes derivadas acabam ficando muito acopladas em relação às superclasses. Os métodos OutOfOrder e Swap seguem o mesmo princípio em outros algoritmos de ordenação, mas não podem ser reaproveitados desta forma.
+
+## Strategy
+
+O design pattern Strategy se propõe a resolver os mesmos problemas do Template Method, porém de uma maneira totalmente distinta. Para compreendermos isso, vamos observar o exemplo da classe BubbleSorter, desta vez construída sob o prisma do padrão Strategy.
+
+``` csharp
+public class BubbleSorter
+{
+    private int operations = 0;
+    private int length = 0;
+    private readonly ISortHandler itsSortHandler = null;
+    public BubbleSorter(ISortHandler sortHandler)
+    {
+        itsSortHandler = sortHandler;
+    }
+    public int Sort(object array)
+    {
+        itsSortHandler.SetArray(array);
+        length = itsSortHandler.Length();
+        operations = 0;
+        if (length <= 1)
+            return operations;
+        for (int nextToLast = length - 2; nextToLast >= 0; nextToLast--)
+        {
+            for (int index = 0; index <= nextToLast; index++)
+            {
+                if (itsSortHandler.OutOfOrder(index))
+                {
+                    itsSortHandler.Swap(index);
+                }
+                operations++;
+            }
+        }
+        return operations;
+    }
+}
+```
+
+``` csharp
+public interface ISortHandler
+{
+    void Swap(int index);
+    bool OutOfOrder(int index);
+    int Length();
+    void SetArray(object array);
+}
+```
+
+``` csharp
+public class IntSortHandler : ISortHandler
+{
+    private int[] array = null;
+    public int Length()
+    {
+        return array.Length;
+    }
+    public bool OutOfOrder(int index)
+    {
+        return array[index] > array[index + 1];
+    }
+    public void SetArray(object array)
+    {
+        this.array = (int[])array;
+    }
+    public void Swap(int index)
+    {
+        int temp = array[index];
+        array[index] = array[index + 1];
+        array[index + 1] = temp;
+    }
+}
+```
+
+Em oposição ao que foi retratado com o Template Method, IntSortHandler não tem qualquer conhecimento de BubbleSorter, e portanto não depende do algoritmo em questão.
+
+A estrutura do pattern Template Method desobedece parcialmente o princípio da Inversão de Dependência, pois Swap e OutOfOrder dependem da ordenação por bolhas. Por outro lado, a partir da aplicabilidade de Strategy, IntSortHandler pode ser consumido por outros algoritmos de ordenação.
+
+A afirmação do último parágrafo pode ser comprovada através de mais um exemplo. Imagine que um programa necessite de um algoritmo de ordenação por bolhas otimizado. Ao implementar essa classe, é possível reaproveitarmos a instância de IntSortHandler no novo algoritmo proposto.
+
+``` csharp
+public class QuickBubbleSorter
+{
+    private int operations = 0;
+    private int length = 0;
+    private ISortHandler itsSortHandler = null;
+    public QuickBubbleSorter(ISortHandler sortHandler)
+    {
+        itsSortHandler = sortHandler;
+    }
+    public int Sort(object array)
+    {
+        itsSortHandler.SetArray(array);
+        length = itsSortHandler.Length();
+        operations = 0;
+        if (length <= 1)
+            return operations;
+        bool thisPassInOrder = false;
+        for (int nextToLast = length - 2; nextToLast >= 0 && !thisPassInOrder; nextToLast--)
+        {
+            thisPassInOrder = true;
+            for (int index = 0; index <= nextToLast; index++)
+            {
+                if (itsSortHandler.OutOfOrder(index))
+                {
+                    itsSortHandler.Swap(index);
+                    thisPassInOrder = false;
+                }
+                operations++;
+            }
+        }
+        return operations;
+    }
+}
+```
+
+## Template Method ou Strategy?
+
+É natural que depois de conhecer cada um dos padrões, vocês estejam se perguntando qual dos dois utilizar em uma solução do dia a dia. Para responder a essa última pergunta, deixo logo a seguir a conclusão de Uncle Bob a respeito do dilema entre Template Method e Strategy.
+
+[![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=Template%20Method%20%C3%A9%20simples%20de%20escrever%20e%20utilizar%2C%20mas%20tamb%C3%A9m%20%C3%A9%20r%C3%ADgido.%20Strategy%20%C3%A9%20flex%C3%ADvel%2C%20mas%20voc%C3%AA%20precisa%20criar%20uma%20classe%20extra%2C%20instanciar%20um%20objeto%20extra%20e%20ligar%20o%20objeto%20ao%20sistema.%20A%20escolha%20depende%20de%20voc%C3%AA%20precisar%20da%20flexibilidade%20de%20Strategy%20ou%20poder%20conviver%20com%20a%20simplicidade%20de%20Template%20Method.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
