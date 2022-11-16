@@ -2,7 +2,9 @@
 
 Repositório com o objetivo de compartilhar exemplos de design patterns elaborados por Robert C. Martin em seu livro *Princípios, Padrões e Práticas Ágeis em C#*.
 
-# Índice
+Os textos a respeito de cada padrão de projeto foram publicados originalmente no meu blog no Medium, [**Fora de Assunto**](https://medium.com/fora-de-assunto).
+
+# Saiba mais sobre os design patterns
 
 - [Command](#command)
   - [Command e a simplicidade](#command-e-a-simplicidade)
@@ -14,6 +16,10 @@ Repositório com o objetivo de compartilhar exemplos de design patterns elaborad
   - [Template Method](#template-method)
   - [Strategy](#strategy)
   - [Template Method ou Strategy?](#template-method-ou-strategy)
+- [Façade e Mediator](#façade)
+  - [Façade](#façade)
+  - [Mediator](#mediator)
+  - [Escolhendo entre Façade e Mediator](#escolhendo-entre-façade-e-mediator)
 
 # Command
 
@@ -102,7 +108,7 @@ Caso o usuário não tivesse gostado do círculo desenhado e quisesse removê-lo
 
 Acredito que tenha sido possível notar que o padrão de projeto Command se adequa muito bem em múltiplas situações. Sem dúvida alguma essa é a maior beleza do pattern, que demonstra ser flexível e simples de implementar.
 
-[(Voltar para o topo)](#índice)
+[(Voltar para o topo)](#saiba-mais-sobre-os-design-patterns)
 
 # Template Method e Strategy
 
@@ -360,3 +366,146 @@ public class QuickBubbleSorter
 É natural que depois de conhecer cada um dos padrões, vocês estejam se perguntando qual dos dois utilizar em uma solução do dia a dia. Para responder a essa última pergunta, deixo logo a seguir a conclusão de Uncle Bob a respeito do dilema entre Template Method e Strategy.
 
 [![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=Template%20Method%20%C3%A9%20simples%20de%20escrever%20e%20utilizar%2C%20mas%20tamb%C3%A9m%20%C3%A9%20r%C3%ADgido.%20Strategy%20%C3%A9%20flex%C3%ADvel%2C%20mas%20voc%C3%AA%20precisa%20criar%20uma%20classe%20extra%2C%20instanciar%20um%20objeto%20extra%20e%20ligar%20o%20objeto%20ao%20sistema.%20A%20escolha%20depende%20de%20voc%C3%AA%20precisar%20da%20flexibilidade%20de%20Strategy%20ou%20poder%20conviver%20com%20a%20simplicidade%20de%20Template%20Method.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
+
+[(Voltar para o topo)](#saiba-mais-sobre-os-design-patterns)
+
+# Façade
+
+A proposta do padrão Façade é estabelecer uma interface simplificada e específica para os seus clientes, a partir de um grupo de objetos que sejam mais complexos. Podemos notar isso observando a classe Db, implementada por Robert Martin. Ela publica uma API extremamente fácil de se entender e utilizar, direcionada apenas para o tipo ProductData, que por de baixo dos panos consome as dependências da biblioteca System.Data.
+
+
+``` csharp
+public class Db
+{
+    private static SqlConnection connection;
+    public static void Init()
+    {
+        string connectionString = "Initial Catalog=QuickyMart;Data Source=marvin;User Id=sa;Password=abc;";
+        connection = new SqlConnection(connectionString);
+        connection.Open();
+    }
+    public static void Store(ProductData pd)
+    {
+        SqlCommand command = BuildInsertionCommand(pd);
+        command.ExecuteNonQuery();
+    }
+    private static SqlCommand BuildInsertionCommand(ProductData pd)
+    {
+        string sql = "INSERT INTO Products VALUES (@sku, @name, @price)";
+        SqlCommand command = new(sql, connection);
+        command.Parameters.Add(new SqlParameter("@sku", pd.sku));
+        command.Parameters.Add(new SqlParameter("@name", pd.name));
+        command.Parameters.Add(new SqlParameter("@price", pd.price));
+        return command;
+    }
+    public static ProductData GetProductData(string sku)
+    {
+        SqlCommand command = BuildProductQueryCommand(sku);
+        IDataReader reader = ExecuteQueryStatement(command);
+        ProductData pd = ExtractProductDataFromReader(reader);
+        reader.Close();
+        return pd;
+    }
+    private static ProductData ExtractProductDataFromReader(IDataReader reader)
+    {
+        ProductData pd = new();
+        pd.sku = reader["sku"].ToString();
+        pd.name = reader["name"].ToString();
+        pd.price = Convert.ToInt32(reader["price"]);
+        return pd;
+    }
+    private static IDataReader ExecuteQueryStatement(SqlCommand command)
+    {
+        IDataReader reader = command.ExecuteReader();
+        reader.Read();
+        return reader;
+    }
+    private static SqlCommand BuildProductQueryCommand(string sku)
+    {
+        string sql = "SELECT * FROM Products Where sku = @sku";
+        SqlCommand command = new(sql, connection);
+        command.Parameters.Add(new SqlParameter("@sku", sku));
+        return command;
+    }
+    public static void DeleteProductData(string sku)
+    {
+        BuildProductDeleteStatement(sku).ExecuteNonQuery();
+    }
+    private static SqlCommand BuildProductDeleteStatement(string sku)
+    {
+        string sql = "DELETE from Products Where sku = @sku";
+        SqlCommand command = new(sql, connection);
+        command.Parameters.Add(new SqlParameter("@sku", sku));
+        return command;
+    }
+    public static void Close()
+    {
+        connection.Close();
+    }
+}
+```
+
+A beleza do pattern está em ocultar toda a dificuldade imposta pelo namespace System.Data, de modo que quem chama os métodos públicos da classe Db não tem qualquer conhecimento de como a conexão com o banco de dados está sendo feita.
+
+[![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=Uma%20fachada%20como%20Db%20imp%C3%B5e%20muitas%20diretivas%20em%20rela%C3%A7%C3%A3o%20ao%20uso%20de%20System.Data%2C%20sabendo%20como%20inicializar%20e%20fechar%20a%20conex%C3%A3o%20com%20o%20banco%20de%20dados%2C%20transformar%20os%20membros%20de%20ProductData%20em%20campos%20de%20banco%20de%20dados%20e%20desfazer%20essa%20transforma%C3%A7%C3%A3o.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
+
+Ao escolher este padrão para desenvolver a classe Db, o autor do código conscientemente definiu um contrato para se conectar com o banco de dados da aplicação. Caso algum trecho faça a conexão com System.Data sem intermediários, violará a convenção estipulada. Assim sendo, é possível afirmar que o design pattern Façade institui as suas diretivas no programa em questão.
+
+# Mediator
+
+Do mesmo jeito que o padrão Façade, o Mediator impõe diretivas que devem ser seguidas pelo código cliente. Entretanto, há duas diferenças claras entre esses patterns.
+
+A primeira delas é que o Mediator define as suas regras de forma oculta, enquanto o Façade faz isto explicitamente. Já a segunda distinção está relacionada com as restrições causadas pelos padrões. O Mediator não restringe o consumidor que utilizá-lo como dependência, embora o Façade funcione de maneira oposta, trazendo restrições.
+
+``` csharp
+public class QuickEntryMediator
+{
+    private readonly TextBox itsTextBox;
+    private readonly ListBox itsList;
+    public QuickEntryMediator(TextBox itsTextBox, ListBox itsList)
+    {
+        this.itsTextBox = itsTextBox;
+        this.itsList = itsList;
+        itsTextBox.TextChanged += new EventHandler(TextFieldChanged);
+    }
+    private void TextFieldChanged(object source, EventArgs args)
+    {
+        string prefix = itsTextBox.Text;
+        if (prefix.Length == 0)
+        {
+            itsList.ClearSelected();
+            return;
+        }
+        ListBox.ObjectCollection listItems = itsList.Items;
+        bool found = false;
+        for (int i = 0; !found && i < listItems.Count; i++)
+        {
+            object o = listItems[i];
+            string s = o.ToString();
+            if (s.StartsWith(prefix))
+            {
+                itsList.SetSelected(i, true);
+                found = true;
+            }
+        }
+        if (!found)
+        {
+            itsList.ClearSelected();
+        }
+    }
+}
+```
+
+Para compreendermos com maior precisão o mecanismo do padrão Mediator, podemos utilizar como base o exemplo acima, também elaborado por Robert Martin.
+
+A classe QuickEntryMediator recebe em seu construtor dois componentes da biblioteca Windows Forms: TextBox e ListBox. No ato de sua instanciação, um EventHandler é registrado na variável TextBox. Quando uma alteração no texto desse componente acontecer, o método TextFieldChanged será invocado. Essa função se responsabiliza por encontrar e selecionar um item do ListBox que tenha em seu prefixo o texto digitado no TextBox.
+
+Percebam que os clientes de ListBox e TextBox não possuem conhecimento deste objeto Mediator. Ele é criado no início do programa, e a partir deste momento monitora quaisquer mudanças realizadas no TextBox, impondo portanto as suas diretivas silenciosamente.
+
+## Escolhendo entre Façade e Mediator
+
+Tenho quase certeza que uma das principais dúvidas de quem está conhecendo estes design patterns é qual dos dois escolher quando for necessário criar diretivas em uma aplicação. Para solucionar esse questionamento, nada melhor do que recorrer às sugestões de Uncle Bob em seu livro:
+
+[![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=A%20imposi%C3%A7%C3%A3o%20de%20diretivas%20pode%20ser%20feita%20de%20cima%20com%20Fa%C3%A7ade%2C%20caso%20precisem%20ser%20grandes%20e%20vis%C3%ADveis.%20Caso%20seja%20preciso%20sutileza%20e%20discri%C3%A7%C3%A3o%2C%20o%20Mediator%20%C3%A9%20a%20melhor%20escolha.%20As%20fachadas%20s%C3%A3o%20o%20ponto%20focal%20de%20uma%20conven%C3%A7%C3%A3o.%20Mediadores%20ficam%20ocultos%20dos%20usu%C3%A1rios.%20Sua%20diretiva%20%C3%A9%20um%20fato%20consumado%2C%20em%20vez%20de%20uma%20conven%C3%A7%C3%A3o.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
+
+[(Voltar para o topo)](#saiba-mais-sobre-os-design-patterns)
