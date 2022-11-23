@@ -5,6 +5,10 @@
 		<UseWindowsForms>true</UseWindowsForms>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+	  <NoWarn>1701;1702;CA1822;CA2211</NoWarn>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<PackageReference Include="System.Data.SqlClient" Version="4.8.4" />
 	</ItemGroup>
