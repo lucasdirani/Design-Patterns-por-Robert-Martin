@@ -20,6 +20,10 @@ Os textos a respeito de cada padrão de projeto foram publicados originalmente n
   - [Façade](#façade)
   - [Mediator](#mediator)
   - [Escolhendo entre Façade e Mediator](#escolhendo-entre-façade-e-mediator)
+- [Singleton e Monostate](#singleton-e-monostate)
+  - [Singleton](#singleton)
+  - [Monostate](#monostate)
+  - [Escolhendo entre Singleton e Monostate](#escolhendo-entre-singleton-e-monostate)
 
 # Command
 
@@ -507,5 +511,100 @@ Percebam que os clientes de ListBox e TextBox não possuem conhecimento deste ob
 Tenho quase certeza que uma das principais dúvidas de quem está conhecendo estes design patterns é qual dos dois escolher quando for necessário criar diretivas em uma aplicação. Para solucionar esse questionamento, nada melhor do que recorrer às sugestões de Uncle Bob em seu livro:
 
 [![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=A%20imposi%C3%A7%C3%A3o%20de%20diretivas%20pode%20ser%20feita%20de%20cima%20com%20Fa%C3%A7ade%2C%20caso%20precisem%20ser%20grandes%20e%20vis%C3%ADveis.%20Caso%20seja%20preciso%20sutileza%20e%20discri%C3%A7%C3%A3o%2C%20o%20Mediator%20%C3%A9%20a%20melhor%20escolha.%20As%20fachadas%20s%C3%A3o%20o%20ponto%20focal%20de%20uma%20conven%C3%A7%C3%A3o.%20Mediadores%20ficam%20ocultos%20dos%20usu%C3%A1rios.%20Sua%20diretiva%20%C3%A9%20um%20fato%20consumado%2C%20em%20vez%20de%20uma%20conven%C3%A7%C3%A3o.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
+
+[(Voltar para o topo)](#saiba-mais-sobre-os-design-patterns)
+
+# Singleton e Monostate
+
+Em grande parte dos programas que escrevemos, muitas instâncias das nossas classes são criadas, e posteriormente descartadas quando cumprem o seu propósito dentro de uma funcionalidade.
+
+Contudo, dependendo da situação, pode ser que a instanciação de múltiplos objetos não seja o ideal, ou até mesmo permitida dentro do contexto de um novo desenvolvimento. Nesses casos, devemos limitar que determinadas classes possuam somente uma instância, desde o início até o fim da execução da aplicação.
+
+Geralmente, objetos que exigem essa premissa são fábricas, utilizadas para criar outros objetos do sistema. Em outros momentos, os objetos em questão são gerenciadores, que monitoram e orquestram uma quantidade considerável de dependências.
+
+Existe um mecanismo chamado Just Create One, que simplifica a necessidade de instanciar um único objeto de uma classe. Nesse padrão, o desenvolvedor, de fato, cria apenas uma instância do objeto no seu programa e se da por satisfeito. Essa abordagem, porém, transmite pouca expressividade no código, e não deixa claro para os demais programadores que outros objetos não devem ser construídos.
+
+Para resolver esse problema, dois design patterns foram elaborados para impor a singularidade de objetos: Singleton e Monostate. Embora possuam o mesmo objetivo, as suas implementações são completamente distintas, e trazem vantagens e desvantagens particulares.
+
+## Singleton
+
+O padrão de projeto Singleton é um dos mais fáceis de se implementar. Para comprovar isso, podemos observar um dos exemplos programados por Robert C. Martin.
+
+``` csharp
+public class Singleton
+{
+    private static Singleton theInstance = null;
+    
+    private Singleton() { }
+    
+    public static Singleton Instance
+    {
+        get
+        {
+            if (theInstance == null)
+            {
+                theInstance = new Singleton();
+            }
+            return theInstance;
+        }
+    }
+}
+```
+
+A instância da classe Singleton pode ser acessada com a propriedade pública Instance. Se Instance for chamada várias vezes, uma referência para a mesma instância será retornada, sem exceções. A classe não possui construtores públicos, logo não há como criar um objeto sem usar a propriedade já mencionada.
+
+Uncle Bob destaca as seguintes vantagens de usar o padrão Singleton:
+
+- **Suporte a Lazy Loading**: caso a classe Singleton não seja invocada, a instância jamais será criada;
+- **Suporte a derivação**: dada qualquer classe, é possível implementar uma subclasse Singleton;
+- **Suporte a qualquer classe**: se for preciso, qualquer classe pode ser transformada em um Singleton, bastando tornar os construtores privados e incluir os métodos/propriedades estáticas requeridas.
+
+Assim como qualquer pattern, Singleton também possui os seus custos:
+
+- **Eficiência**: sempre que a propriedade Instance é chamada, a instrução if acaba sendo verificada. Isso caracteriza um gasto desnecessário de processamento (mesmo que baixo), pois para a maioria dos cenários, a checagem não terá mais utilidade;
+- **Falta de transparência**: necessariamente, todos os usuários de uma classe Singleton sabem que estão consumindo este padrão, dado que a propriedade Instance deve ser usada;
+- **Destruição indefinida**: objetos Singleton são difíceis de serem destruídos, ou seja, liberados da memória. Por exemplo, se o programador incluir um método que anula o campo theInstance, outras classes ainda podem referenciar o Singleton. Logo, outras invocações para Instance criarão mais uma instância, duplicando-a.
+
+# Monostate
+
+O design pattern Monostate atua de forma diferente do Singleton para alcançar a singularidade de objetos. A seguir temos um trecho de código criado por Martin para ilustrar o mecanismo do padrão.
+
+``` csharp
+public class Monostate
+{
+    private static int itsX;
+    
+    public int X
+    {
+        get { return itsX; }
+        set { itsX = value; }
+    }
+}
+```
+
+Conforme a definição da classe Monostate, percebe-se que os objetos instanciados compartilharão a variável itsX. Isso porque ela foi declarada internamente como estática.
+
+A distinção em relação à Singleton está no comportamento x estrutura. Enquanto Singleton força a estrutura da singularidade, impedindo que mais instâncias sejam criadas, Monostate impõe o comportamento da singularidade, permitindo a instanciação de vários objetos.
+
+Robert Martin ressalta os benefícios de usar Monostate:
+
+- **Transparência**: os clientes da classe Monostate se comportam do mesmo jeito que os clientes de classes que não utilizam o padrão;
+- **Derivação**: as subclasses de um Monostate também são Monostate. Todas compartilham as mesmas variáveis estáticas;
+- **Polimorfismo**: os métodos de um Monostate não são estáticos, habilitando a sobrescrita de funções;
+- **Destruição definida**: opondo-se ao Singleton, as variáveis de um Monostate possuem o seu ciclo de vida (criação e destruição) bem definido.
+
+As desvantagens da aplicabilidade do padrão estão listadas abaixo:
+
+- **Ausência de conversão**: classes que não são Monostate não podem ser convertidas em Monostate a partir de derivação;
+- **Eficiência**: tendo em vista que Monostate habilita a criação e destruição de múltiplas instâncias, isto pode ter um custo considerável durante a execução do sistema;
+- **Memória**: independente da utilização de um Monostate, as suas variáveis irão ocupar espaço.
+
+## Escolhendo entre Singleton e Monostate
+
+De acordo com o funcionamento dos padrões Singleton e Monostate, qual dos dois escolher quando for preciso impor a singularidade de objetos?
+
+Robert C. Martin deu a resposta para esta pergunta na sua obra:
+
+[![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=O%20melhor%20uso%20do%20Singleton%20se%20d%C3%A1%20quando%20voc%C3%AA%20tem%20uma%20classe%20que%20precisa%20restringir%20por%20deriva%C3%A7%C3%A3o%20e%20n%C3%A3o%20se%20importa%20que%20todos%20tenham%20que%20chamar%20a%20propriedade%20Instance.%20O%20melhor%20uso%20do%20Monostate%20se%20d%C3%A1%20quando%20voc%C3%AA%20quer%20que%20a%20singularidade%20da%20classe%20seja%20transparente%20para%20os%20usu%C3%A1rios%20ou%20quando%20quer%20usar%20derivadas%20polim%C3%B3rficas%20do%20%C3%BAnico%20objeto.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
 
 [(Voltar para o topo)](#saiba-mais-sobre-os-design-patterns)
