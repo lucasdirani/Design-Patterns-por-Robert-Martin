@@ -24,6 +24,9 @@ Os textos a respeito de cada padrão de projeto foram publicados originalmente n
   - [Singleton](#singleton)
   - [Monostate](#monostate)
   - [Escolhendo entre Singleton e Monostate](#escolhendo-entre-singleton-e-monostate)
+- [Null Object](#null-object)
+  - [Implementando o padrão](#implementando-o-padrão)
+  - [O poder de Null Object](#o-poder-de-null-object)
 
 # Command
 
@@ -565,7 +568,7 @@ Assim como qualquer pattern, Singleton também possui os seus custos:
 - **Falta de transparência**: necessariamente, todos os usuários de uma classe Singleton sabem que estão consumindo este padrão, dado que a propriedade Instance deve ser usada;
 - **Destruição indefinida**: objetos Singleton são difíceis de serem destruídos, ou seja, liberados da memória. Por exemplo, se o programador incluir um método que anula o campo theInstance, outras classes ainda podem referenciar o Singleton. Logo, outras invocações para Instance criarão mais uma instância, duplicando-a.
 
-# Monostate
+## Monostate
 
 O design pattern Monostate atua de forma diferente do Singleton para alcançar a singularidade de objetos. A seguir temos um trecho de código criado por Martin para ilustrar o mecanismo do padrão.
 
@@ -606,5 +609,91 @@ De acordo com o funcionamento dos padrões Singleton e Monostate, qual dos dois 
 Robert C. Martin deu a resposta para esta pergunta na sua obra:
 
 [![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=O%20melhor%20uso%20do%20Singleton%20se%20d%C3%A1%20quando%20voc%C3%AA%20tem%20uma%20classe%20que%20precisa%20restringir%20por%20deriva%C3%A7%C3%A3o%20e%20n%C3%A3o%20se%20importa%20que%20todos%20tenham%20que%20chamar%20a%20propriedade%20Instance.%20O%20melhor%20uso%20do%20Monostate%20se%20d%C3%A1%20quando%20voc%C3%AA%20quer%20que%20a%20singularidade%20da%20classe%20seja%20transparente%20para%20os%20usu%C3%A1rios%20ou%20quando%20quer%20usar%20derivadas%20polim%C3%B3rficas%20do%20%C3%BAnico%20objeto.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
+
+[(Voltar para o topo)](#saiba-mais-sobre-os-design-patterns)
+
+# Null Object
+
+A principal proposta do design pattern Null Object pode ser compreendida a partir de um breve trecho de código desenvolvido por Robert C. Martin. Vamos conferir.
+
+``` csharp
+Employee e = DB.GetEmployee("Bob");
+if (e != null && e.IsTimeToPay(today))
+  e.Pay();
+```
+
+A primeira linha de código do exemplo anterior busca a instância de um objeto do tipo Employee do banco de dados. Neste caso, se não houver um funcionário registrado com o nome ‘Bob’, o método GetEmployee retornará null. Para que a função Pay seja chamada, o funcionário deve existir e estar apto a receber um pagamento.
+
+Qualquer programador que trabalhe com Java, C# e outras linguagens orientadas a objeto, provavelmente escreveu um código parecido com este que acabou de ser demonstrado. Digo isso porque é comum verificarmos se uma instância está nula antes de utilizá-la, de modo a evitar o lançamento de exceções.
+
+Contudo, mesmo com a evolução das features disponibilizadas pelas novas versões das linguagens de programação que auxiliam na checagem de valores nulos, muitos desenvolvedores ainda sofrem com os famosos erros advindos da NullReferenceException. Além disso, a própria verificação se um objeto está nulo polui o código-fonte, dificultando a sua legibilidade.
+
+Há programadores que julguem ser uma opção melhor lançar exceções explicitamente no lugar de retornar objetos nulos. Todavia, esse tipo de solução não costuma ter um impacto positivo, pois os blocos try/catch também são deselegantes, e podem diminuir a eficiência do código.
+
+O padrão de projetos Null Object desponta como uma das melhores saídas para o cenário abordado até então. Esse pattern acaba com a obrigatoriedade de checar se um objeto está nulo, além de não exigir o tratamento defensivo de exceções. Logo, ele simplifica o código elaborado pelos desenvolvedores, tornando-o mais limpo.
+
+## Implementando o padrão
+
+Da mesma forma que o padrão Null Object proporciona a simplificação do código, a sua implementação não deixa a desejar, sendo portanto bastante descomplicada. Para comprovar isso, mostro a seguir o diagrama de classes criado por Martin, que explica o funcionamento do design pattern.
+
+<p align="center">
+<img width="600" src="https://miro.medium.com/max/828/1*hn_EcZgxiCRdpzVzXRXMNQ.webp" alt="Diagrama de classes ilustrando os mecanismos do padrão Null Object">
+</p>
+
+Conforme pode ser observado, Employee é adaptada para uma interface, que possui duas implementações. A classe EmployeeTransaction é a implementação padrão do objeto. Assim sendo, quando a classe DB localizar um funcionário no banco de dados, retornará uma instância desse tipo.
+
+Por outro lado, se DB não encontrar o funcionário pesquisado, agora com a nova estrutura do padrão Null Object, o método GetEmployee retornará uma instância de NullEmployee. Esse tipo implementa os mesmos métodos de EmployeeTransaction, com a diferença que eles não fazem absolutamente nada.
+
+Com as mudanças aplicadas por Null Object, o primeiro trecho de código incluído no artigo pode ficar da seguinte maneira:
+
+``` csharp
+Employee e = DB.GetEmployee("Bob");
+if (e.IsTimeToPay(today))
+  e.Pay();
+```
+
+Diferente da alternativa de lançar exceções para funcionários não localizados, esta abordagem é visualmente agradável e sem propensão a erros inesperados. O método GetEmployee sempre irá retornar uma instância de Employee, que por sua vez se comportará corretamente, independente de ter sido buscada com sucesso do banco de dados.
+
+``` csharp
+ public abstract class Employee
+ {
+     public abstract bool IsTimeToPay(DateTime time);
+     
+     public abstract void Pay();
+     
+     public static readonly Employee NULL = new NullEmployee();
+     
+     private class NullEmployee : Employee
+     {
+         public override bool IsTimeToPay(DateTime time)
+         {
+             return false;
+         }
+         
+         public override void Pay()
+         {
+         }
+     }
+ }
+```
+
+O código da classe abstrata Employee está exposto na imagem acima. Ela possui uma variável estática chamada NULL, que armazena a única instância da classe aninhada NullEmployee.
+
+A estratégia de definir NullEmployee como um tipo privado aninhado é interessante. Isso garante que apenas uma instância dela irá existir por todo o sistema, remetendo ao padrão Singleton.
+
+A variável estática NULL serve como uma referência para os consumidores de Employee que precisarem saber se um funcionário foi encontrado pelo método GetEmployee.
+
+``` csharp
+Employee employee = DB.GetEmployee("Bob");
+if (employee == Employee.NULL) {
+  //lógica para um funcionário não encontrado
+}
+```
+
+## O poder de Null Object
+
+Uncle Bob destaca as vantagens oportunizadas pelo padrão Null Object:
+
+[![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark&quote=Aqueles%20que%20t%C3%AAm%20usado%20linguagens%20baseadas%20em%20C%20se%20acostumaram%20com%20fun%C3%A7%C3%B5es%20que%20retornam%20null%20ou%200%20em%20casos%20de%20falha.%20Presumimos%20que%20o%20retorno%20de%20tais%20fun%C3%A7%C3%B5es%20precisa%20ser%20testado.%20Null%20Object%20muda%20isso.%20Com%20esse%20padr%C3%A3o%2C%20garantimos%20que%20as%20fun%C3%A7%C3%B5es%20sempre%20retornem%20objetos%20v%C3%A1lidos%2C%20mesmo%20quando%20falham.&author=Robert%20C.%20Martin)](https://github.com/piyushsuthar/github-readme-quotes)
 
 [(Voltar para o topo)](#saiba-mais-sobre-os-design-patterns)
